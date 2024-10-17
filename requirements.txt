@@ -1,1 +1,2 @@
 tqdm
+torchsummary==1.5.1
