@@ -36,81 +36,23 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.special = False # Use LRASPP
         self.segmentation_head = segmentation_head
-        if backbone == "LRASPP":
-            net = lraspp_mobilenet_v3_large(pretrained=bool_pretrained)
-            net.classifier = LRASPPHead(low_channels, high_channels, num_classes, inter_channels)
-                
-            self.backbone = net.backbone
-            if bool_pretrained: # training will here
-                self.segmentation_head = net.classifier
-                self.special = True # Use LRASPP
-            else: # detect will here because bool_pretrained is False
-                self.segmentation_head = None
-                self.special = False # Use LRASPP
-            self.regression_head = RGHead(960, 896, 512)
             
-        elif backbone == "MobileNetV3":
+        if backbone == "MobileNetV3":
             net = mobilenet_v3_large(pretrained=bool_pretrained).features
-            if segmentation_head == "LRASPP":
-                stage_indices = [0] + [i for i, b in enumerate(net) if getattr(b, "_is_cn", False)] + [len(net) - 1]
-                self.low_pos = stage_indices[-4]  # use C2 here which has output_stride = 8
-                self.high_pos = stage_indices[-1]  # use C5 which has output_stride = 16
-                self.backbone = IntermediateLayerGetter(net, return_layers={str(self.low_pos): 'low', str(self.high_pos): 'high'})
-                self.segmentation_head = LRASPPHead(low_channels, high_channels, num_classes, inter_channels)
-                self.special = True # Use LRASPP
-            else:
-                net.classifier = nn.Sequential()  # remove last fc layer
-                self.backbone = net
+            net.classifier = nn.Sequential()  # remove last fc layer
+            self.backbone = net
             self.regression_head = RGHead(960, 896, 512)
-        elif backbone == "MobileNetV2":
-            net = mobilenet_v2_Conv(pretrained=bool_pretrained)
-            num_ftrs = net.classifier[1].in_features # get mobilenet.classifier in_features number. int 1280
-            if segmentation_head == "FCN":
-                pass
-            else:
-                net.classifier = nn.Sequential()  # remove last fc layer
-                self.backbone = net
-            self.regression_head = RGHead(num_ftrs, 896, 512)
-        elif backbone == "EfficientNetLite": 
-            net = build_efficientnet_lite('efficientnet_lite0', 1000)
-            if bool_pretrained:
-                net.load_pretrain("./Pretrain_Model/EfficientNet-Lite/efficientnet_lite0.pth")
-            net.avgpool = nn.Sequential()
-            net.dropout = nn.Sequential()
-            net.fc = nn.Sequential()
-            self.backbone = net 
-            if segmentation_head == "FCN":
-                self.segmentation_head = FCNHead(1280, 1)
-            else:
-                self.segmentation_head = False
-            self.regression_head = RGHead(1280, 896, 512)
-        else:
-            raise Exception("Please set a backbone type ! !")
            
 
     def forward(self, x):
-        if self.segmentation_head:
-            if self.special:
-                out = self.backbone(x)
-                segmentation_out = self.segmentation_head(out)
-                segmentation_out = F.interpolate(segmentation_out, size=x.shape[-2:], mode='bilinear', align_corners=True)
-                regression_out = self.regression_head(out['high'])
-            else:
-                out = self.backbone(x)
-                segmentation_out = self.segmentation_head(out)
-                segmentation_out = F.interpolate(segmentation_out, size=x.shape[-2:], mode='bilinear', align_corners=True)
-                regression_out = self.regression_head(out)
+        out = self.backbone(x)
+        try:
+            regression_out = self.regression_head(out)
+        except AttributeError: # LRASPP backbone default output was fixed format output by LRASPP pretrained model.
+            regression_out = self.regression_head(out['high'])
 
-            return segmentation_out, regression_out
-
-        else:
-            out = self.backbone(x)
-            try:
-                regression_out = self.regression_head(out)
-            except AttributeError: # LRASPP backbone default output was fixed format output by LRASPP pretrained model.
-                regression_out = self.regression_head(out['high'])
-            
-            return regression_out
+        return regression_out
+    
 
 class LRASPPHead(nn.Module):
 
@@ -180,16 +122,14 @@ class RGHead(nn.Module): # Regression Head alternative Freespace Head
 
 def test():
     net = Net(
-        backbone="LRASPP",
-        segmentation_head = "LRASPP",
+        backbone="MobileNetV3",
         bool_pretrained = True
         ).to(torch.device("cuda"))
     summary(net, (3, 288, 512))
     
 def FlopsAndParams():
     net = Net(
-        backbone="LRASPP",
-        segmentation_head = "LRASPP",
+        backbone="MobileNetV3",
         bool_pretrained = True
         )
     input = torch.randn(1, 3, 288, 512)
