@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from models.Net import Net
 
-class OPT:  #fit Evaluate.py
+class OPT:  # fit Evaluate.py
     nothingelse: str = 'nothingelse'
 @dataclass
 class FS:
@@ -140,7 +140,7 @@ class FS:
 
         signs = np.random.choice([-1, 1], size=input_array.shape)
 
-        # 將隨機數和隨機符號結合起來
+        # Combine random numbers and random symbols
         random_adjustments = random_numbers * signs
 
         input_array_plus_random = input_array + random_adjustments
