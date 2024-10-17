@@ -4,7 +4,8 @@ import torch.nn.functional as F
 import os
 
 from typing import Dict
-# from torchinfo import summary
+from torchsummary import summary
+from thop import profile
 from torch import Tensor
 from collections import OrderedDict
 try:
@@ -19,8 +20,6 @@ except ImportError:
     from custorchvision.models.efficientnetlite import build_efficientnet_lite
     from custorchvision.models._utils import IntermediateLayerGetter
     from custorchvision.models.segmentation import lraspp_mobilenet_v3_large
-# from torchvision.models.segmentation import lraspp_mobilenet_v3_large
-# from thop import profile
 
 
 class Net(nn.Module):
@@ -185,14 +184,7 @@ def test():
         segmentation_head = "LRASPP",
         bool_pretrained = True
         ).to(torch.device("cuda"))
-    summary(
-        net, 
-        (1, 3, 288, 512), 
-        verbose=1, 
-        depth=3, 
-        col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
-        row_settings=["var_names"]
-            )
+    summary(net, (3, 288, 512))
     
 def FlopsAndParams():
     net = Net(
