@@ -1,2 +1,2 @@
-# DRBW
-Drivable Road Boundary Warning
+# RWAS
+Road Width Assessment System
